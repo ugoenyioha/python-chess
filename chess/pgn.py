@@ -92,6 +92,8 @@ MOVETEXT_REGEX = re.compile(r"""
     |([\?!]{1,2})
     """, re.DOTALL | re.VERBOSE)
 
+EMT_REGEX = re.compile(r"\[%emt (?:(?:(\d+):)?(\d+):)?(\d+\.?\d*)\]")
+
 
 class GameNode(object):
 
@@ -102,6 +104,7 @@ class GameNode(object):
         self.starting_comment = ""
         self.comment = ""
         self.variations = []
+        self.emt = None
 
         self.board_cached = None
 
@@ -604,6 +607,17 @@ class GameModelCreator(BaseVisitor):
         Returns the visited :class:`~chess.pgn.Game()`.
         """
         return self.game
+
+
+class FicsGameModelCreator(GameModelCreator):
+    def visit_comment(self, comment):
+        if self.in_variation or (not self.variation_stack[-1].parent and self.variation_stack[-1].is_end()):
+            match = EMT_REGEX.search(comment)
+            if match:
+                secs = int(match.group(1) or 0) * 3600 + int(match.group(2) or 0) * 60 + float(match.group(3))
+                self.variation_stack[-1].emt = secs
+
+        super(FicsGameModelCreator, self).visit_comment(comment)
 
 
 class StringExporter(BaseVisitor):
